@@ -1,0 +1,75 @@
+@startuml
+
+  !function $replace($str, $search, $replace = "") 
+    !$newStr = ""
+    !$i = 0
+    !$len = %strlen($str)
+    !$searchLen = %strlen($search)
+    !$index = 0
+    
+    !while $index < $len
+      !$value = %substr($str, $i, $searchLen)
+
+      !if ($value == $search)
+        !$newStr = $newStr + $replace
+      !else 
+        !$newStr = $newStr + $value
+      !endif
+
+      !$i = $i + 1
+      !$index = $i + $searchLen
+    !endwhile
+    
+    !return $newStr
+  !endfunction
+
+
+  !function $trim($str)
+    !$remaining = $str
+    !$len = %strlen($str)
+    
+    !while $len > 0 && %substr($remaining, 0, 1) == ' '
+      !$remaining = %substr($remaining, 1)
+      !$len = %strlen($remaining)
+    !endwhile
+
+    !$len = %strlen($remaining) - 1
+    !if ($len > 0)
+      !while $len > 0 && %substr($remaining, $len) == ' '
+        !$remaining = %substr($remaining, 0, $len)
+        !$len = %strlen($remaining) - 1
+      !endwhile
+    !endif
+    !return $remaining
+  !endfunction
+
+  !function $indexOf($search, $array)
+    !$search = $trim($search)
+    !$i = 0
+    !foreach $val in $array
+      !if ($val == $search)
+        !return $i
+      !endif
+      !$i = $i + 1
+    !endfor
+
+    !return %intval("-1")
+  !endfunction
+
+  !function $filter($search, $array) 
+    !$ret = ""
+    !$i = 0
+    !foreach $item in $array 
+      !$index = %strpos($search, $item)
+      !if ($index >= 0) 
+        !$ret = $ret + $item + ","
+        !$i = $i + 1
+      !endif
+    !endfor
+    !if ($i > 0)
+      !$ret = %substr($ret, 0, %strlen($ret) - 1)
+    !endif
+    !return $ret
+  !endfunction
+
+@enduml

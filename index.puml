@@ -1,0 +1,188 @@
+@startuml Common functions
+  !function $isNull($value, $defaultValue)
+    !$len = %strlen($value)
+    !if ($len <= 0) || ($value == "undefined")
+      !return $defaultValue
+    !endif
+    !return $value
+  !endfunction
+
+  !function $type($e_type, $closeColors = %false())
+    !if ($e_type == "")
+      !return ""
+    !else
+      !if (%substr($e_type, 0, 1) == %upper(%substr($e_type, 0, 1)))
+        !$posGenStart = %strpos($e_type, "<")
+        
+        !if ($posGenStart > 0)
+          
+          !$base = $trim(%substr($e_type, 0, $posGenStart))
+          !$genericStr = ""
+          !$len = %strlen($e_type)
+          
+          !$genericParts = %substr($e_type, $posGenStart + 1)
+          
+          !$remaining = $genericParts
+          !$len = %strlen($remaining)
+          
+          !while $len > 0
+            !$firstIndex = %strpos($remaining, ",")
+
+            !if ( $firstIndex < 0 )
+              !$firstIndex = %strlen($remaining)
+            !endif
+
+            !$current = $trim(%substr($remaining, 0, $firstIndex))
+
+            !if ( $firstIndex > %strlen($remaining) )
+              !$remaining = ""
+            !else
+              !$remaining = %substr($remaining, $firstIndex + 1)
+            !endif
+            !$len = %strlen($remaining)
+
+            !$genericStr = $genericStr + $type($current, %true())
+            !if ($len > 0) 
+              !$genericStr = $genericStr + ", "
+            !endif
+          !endwhile
+          !if %not($closeColors)
+            !return "**<color darkGreen>" + $trim($base) + "**<" + $genericStr + ">"
+          !else 
+            !return "**<color darkGreen>" + $trim($base) + "</color>**<" + $genericStr + ">"
+          !endif
+        !else
+          !return "**<color darkgreen>" + $trim($e_type) + "**"
+        !endif
+      !else
+        !return "**<color blue>" + $trim($e_type) + "**"
+      !endif
+    !endif
+    !return ""
+  !endfunction
+
+  !function $trim($str)
+    !$remaining = $str
+    !while %substr($remaining, 0, 1) == ' '
+      !$remaining = %substr($remaining, 1)
+    !endwhile
+
+    !$len = %strlen($remaining) - 1
+    !while %substr($remaining, $len) == ' '
+      !$len = %strlen($remaining) - 1
+      !$remaining = %substr($remaining, 0, $len)
+    !endwhile
+    !return $remaining
+  !endfunction
+
+  !function $cType($jsonData)
+    !$len = %strlen($jsonData.type)
+    !if($len == 0)
+      !return "class"
+    !endif
+    !return %lower($jsonData.type)
+  !endfunction
+
+  ' Render parameter list from array (name, type)
+  !function $params($jsonArray)
+    !$paramList = ""
+    !foreach $param in $jsonArray
+      !$pType = $type($trim($param.type))
+      !if (%strlen($pType) <= 0)
+        !$pType = $type("unkown")
+      !endif
+      !$len = %strlen($param.keywords)
+      !if ($len > 0)
+        !$paramList = $paramList + "<color blue>" + $param.keywords + "</color> "
+      !endif
+      !$paramList = $paramList + $pType + " " + $trim($param.name) + ", "
+    !endfor
+    !$len = %strlen($paramList)
+    !$paramList = %substr($paramList, 0, $len - 2)
+    !return $paramList
+  !endfunction
+
+  !function $propertyAccessors($property)
+    !$str = "{ "
+    ' Print output
+    !if ($property.get != "false")
+      !if ($property.get != "true")
+        !$str = $str + "**<color blue>" + $trim($property.get) + " get**;"
+      !else 
+        !$str = $str + "**<color blue> get**;"
+      !endif
+    !endif
+    
+    !if ($property.set != "false")
+      !if ($property.set != "true")
+        !$str = $str + "**<color blue>" + $trim($property.set) + " set**;"
+      !else 
+        !$str = $str + "**<color blue> set**;"
+      !endif
+    !endif
+    !$str = $str + " }"
+    !return $str
+  !endfunction
+
+  ' Render class definition from Json
+  !function $classDetails($jsonData)
+    !$classDef = ""
+    !$genericDetails = ""
+    !if (%strlen($jsonData.genericTypes) > 0)
+      !foreach $generic in $jsonData.genericTypes
+        !$classDef = $classDef + $type($generic.alias) + ", "
+        !if (%strlen($generic.type) > 0)
+          !$genericDetails = $genericDetails + $type($generic.alias) + " : " + $type($generic.type) + "; "
+        !endif
+      !endfor
+      !if ($classDef != "")
+        !$len = %strlen($classDef)
+        !$classDef = %substr($classDef, 0, $len - 2)
+        !$classDef = $jsonData.name + "<b><" + $classDef + "></b>"
+        !if (%strlen($genericDetails) > 0)
+          !$len = %strlen($genericDetails)
+          !$genericDetails = %substr($genericDetails, 0, $len - 2)
+          !$genericDetails = "<" + $genericDetails + ">"
+          !$classDef = $classDef + " " + $genericDetails
+        !endif
+      !endif
+      !return $classDef
+    !else 
+      !return $trim($jsonData.name)
+    !endif
+    !return $classDef
+  !endfunction
+
+  ' Render methods of a structure
+  !procedure $methods($jsonData)
+    !if (%strlen($jsonData.methods) > 0)
+      !foreach $method in $jsonData.methods
+        !$returns = $type($isNull($method.returns, "void"))
+        !$visibility = "<color blue><b>" + $isNull($method.modifiers, "private") + "</b></color>"
+        ' Print output
+        $visibility $returns $method.name($params($method.params))
+      !endfor
+    !endif
+  !endprocedure
+
+  ' Render methods of a structure
+  !procedure $props($jsonData)
+    !if (%strlen($jsonData.properties) > 0)
+      !foreach $property in $jsonData.properties
+        !$returns = $type($isNull($property.type, unknown))
+        !$visibility = "<color blue><b>" + $isNull($property.modifiers, "private") + "</b></color>"
+        ' Print output
+        $visibility $returns $property.name $propertyAccessors($property)
+      !endfor
+    !endif
+  !endprocedure
+
+  ' Renders the Class itslef
+  !procedure $Class($classData)
+      $cType($classData) "$classDetails($classData)" as $classData.alias {
+        $methods($classData)
+        $props($classData)
+      }
+  !endprocedure
+
+@enduml

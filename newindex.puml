@@ -1,0 +1,207 @@
+@startuml Common functions
+  !include_once functions.puml
+  !include_once variables.puml
+  
+  !function $tokenize($str, $isMethod = %false())
+    !$ix = $indexOf($str, $data[words])
+
+    !if ($ix >= 0) 
+      !return "**<color blue>" + $str + "**"
+    !endif
+    !$firstChar = %substr($str, 0, 1)
+    !if ($firstChar == %upper($firstChar)) && $isMethod == 0
+      !return "**<color darkgreen>" + $str + "**"
+    !else
+      !return $str
+    !endif
+  !endfunction
+
+  !function $parseSegment($str, $parenthesis = "") 
+    !if ($parenthesis == "")
+      !return $tokenize($str)
+    !endif
+    !$begin = $getVal($parenthesis, "begin")
+    !$end = $getVal($parenthesis, "end")
+    !if ($begin == "") 
+      !$begin = 0
+    !endif
+    !if ($end == "") 
+      !$end = %strlen($str)
+    !endif    
+
+    !$ext = $trim(%substr($str, 0, $begin))
+    !$sub = $trim(%substr($str, $begin + 1, %strlen($str) - $begin - 2))
+    !$extLen = %strlen($ext)
+    !if ($extLen <= 0) 
+      !return $getVal($parenthesis, "open") + " " + $parse($sub) + " " + $getVal($parenthesis,"close")
+    !else 
+      ' !log Sub: "$sub"
+      !$sub = $parse($sub)
+      ' !log $tokenize($ext, 0) $getVal($parenthesis, "open") $sub $getVal($parenthesis, "close")
+
+      !if ($getVal($parenthesis, "open") == "(")
+        !return $tokenize($ext, 1) + $getVal($parenthesis, "open") + $sub + $getVal($parenthesis,"close")
+      !else 
+        !return $tokenize($ext, 0) + $getVal($parenthesis, "open") + $sub + $getVal($parenthesis,"close")
+      !endif
+    !endif
+  !endfunction
+
+  !function $getClosing($str, $index, $tag)
+    !$pos = $index + 1
+    !$indexOfTag = $indexOf($tag, $data[pStart])
+
+    !$desiredCloseTag = $data[pEnd][$indexOfTag]
+    !$len = %strlen($str)
+
+    !while $pos < $len
+      !$char = %substr($str, $pos, 1)
+
+      !$isOpenTag = $indexOf($char, $data[pStart])
+
+      !if ($isOpenTag >= 0)
+        !$pos = $getClosing($str, $pos, $char)
+      !else
+        !if $char == $desiredCloseTag
+          !$pos = $pos + 1
+          !return $pos
+        !else 
+          !$pos = $pos + 1
+        !endif
+      !endif
+    !endwhile
+    
+    !return %intval("-1")
+  !endfunction
+
+  !function $getVal($str, $tag = "begin")
+    !if (($tag != "begin") && ($tag != "end") && ($tag != "open") && ($tag != "close")) || ($str == undefined)
+      !return ""
+    !endif
+
+    !$len = %strlen($str)
+    !if $len <= 0 
+      !return ""
+    !endif
+
+    !$i = 0
+    !while $len > 0
+      !$pos = %strpos($str, ",")
+      !if ($pos <= 0) 
+        !$pos = %strlen($str)
+      !endif
+      
+      !$current = %substr($str, 0, $pos)
+      
+      !if ($pos == %strlen($str))
+        !$str = ""
+      !else 
+        !$str = %substr($str, $pos + 1)
+      !endif
+
+      !$len = %strlen($str)
+      !if ($tag == "begin" && $i == 0)
+        !return %intval($current)
+      !else
+        !if ($tag == "end" && $i == 1)
+          !return %intval($current)
+        !else
+          !if ($tag == "open" && $i == 2)
+            !return $current
+          !else
+            !if ($tag == "close" && $i == 3)
+              !return $current
+            !endif
+          !endif
+        !endif
+      !endif
+      !$i = $i + 1
+    !endwhile
+
+    !return ""
+  !endfunction
+
+  !function $findParenthesis($str, $start, $stop) 
+    !$found = $filter($str, $data[pStart])
+    !$len = %strlen($found)
+    !$parenthesis = ""
+    !while $len > 0
+      !$tag = %substr($found, 0, 1)
+      !$found = %substr($found, 2)
+      !$len = %strlen($found)
+      !$pOpen = %strpos($str, $tag)
+
+      !if ($pOpen <= $stop)
+        !$indexOfTag = $indexOf($tag, $data[pStart])
+        !$desiredCloseTag = $data[pEnd][$indexOfTag]
+
+        !$pStop = $getClosing($str, $pOpen, $tag)
+
+        !if ($parenthesis == "")
+          !$parenthesis = $pOpen + "," + $pStop + "," +  $tag + ","+  $desiredCloseTag
+        !else 
+          !if (%intval($getVal($parenthesis, "begin")) > $pOpen)
+            !$parenthesis = $pOpen + "," + $pStop + "," +  $tag + ","+  $desiredCloseTag
+          !endif
+        !endif
+      !endif
+    !endwhile
+    !return $parenthesis
+  !endfunction
+
+  !function $parse($str)
+    !$str = $trim($str)
+    !$returnValue = ""
+    !$len = %strlen($str)
+    !while $len > 0
+      !$separator = " "
+      !$pos = %strpos($str, $separator)
+      !if ($pos > 0)
+        !$prevChar = %substr($str, $pos - 1, 1)
+        !if ($prevChar == ",") 
+          !$separator = ", "
+          !$pos = $pos - 1
+        !endif
+      !endif
+
+      !if ($pos <= 0) || ($pos > %strpos($str, ',' ))
+        !$separator = ","
+        !$pos = %strpos($str, $separator)
+        !if ($pos < 0)
+          !$pos = %strlen($str)
+          !$separator = ""
+        !endif
+      !endif
+
+      !$parenthesis = $findParenthesis($str, 0, $pos)
+
+      !if (%strlen($parenthesis) > 0)
+        !$parentEnd = $getVal($parenthesis, "end")
+        !if ($parentEnd > $pos) 
+          !$pos = $parentEnd
+          !$separator = %substr($str, $parentEnd, 1)
+        !endif
+      !endif
+
+      !$current = $trim(%substr($str, 0, $pos))
+      !$str = $trim(%substr($str, $pos + %strlen($separator)))
+      !$len = %strlen($str)
+
+      !if ($len > 0) 
+        !if ($separator == ",")
+          !$separator = ", "
+        !endif
+        !$returnValue = $returnValue + $parseSegment($current, $parenthesis) + $separator
+      !else 
+        !$returnValue = $returnValue + $parseSegment($current, $parenthesis)
+      !endif
+    !endwhile
+    !return $returnValue
+  !endfunction
+
+  ' : **<color blue>public** **<color blue>override** **<color blue>async** **<color darkgreen>ValueTuple**<**<color darkgreen>TKey**<**<color blue>int**, **<color blue>float**>, **<color darkgreen>TValue**<**<color blue>int**, **<color darkgreen>Double**>> MethodName(**<color darkgreen>Dictionary**<**<color blue>string**, **<color blue>int**> x, **<color darkgreen>Double** y) ;
+  ' : $parse("public override async ValueTuple<TKey<int,float>,TValue<int,Double>> MethodName(Dictionary<string, int> x, Double y)") ;
+  ' : $parse("public override async ValueTuple[TKey[int, float], TValue[int, Double]] MethodName(Dictionary[string, int] x, Double y)") ;
+  ' : $parse("public override async ValueTuple[TKey[int,float],TValue[int, Double]] MethodName(Dictionary[string, int] x, Double y)") ;
+  ' : $parse("ValueTuple[TKey[int, float], TValue[int, Double]]") ;
+@enduml
